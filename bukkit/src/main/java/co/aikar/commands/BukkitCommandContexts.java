@@ -34,7 +34,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.PlayerInventory;
-import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.Contract;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -51,10 +51,10 @@ public class BukkitCommandContexts extends CommandContexts<BukkitCommandExecutio
     public BukkitCommandContexts(BukkitCommandManager manager) {
         super(manager);
 
-        registerContext(OnlinePlayer.class, c -> getOnlinePlayer(c.getIssuer(), c.popFirstArg(), c.isOptional()));
+        registerContext(OnlinePlayer.class, c -> getOnlinePlayer(c.getIssuer(), c.popFirstArg(), false));
         registerContext(co.aikar.commands.contexts.OnlinePlayer.class, c -> {
-            OnlinePlayer onlinePlayer = getOnlinePlayer(c.getIssuer(), c.popFirstArg(), c.isOptional());
-            return onlinePlayer != null ? new co.aikar.commands.contexts.OnlinePlayer(onlinePlayer.getPlayer()) : null;
+            OnlinePlayer onlinePlayer = getOnlinePlayer(c.getIssuer(), c.popFirstArg(), false);
+            return new co.aikar.commands.contexts.OnlinePlayer(onlinePlayer.getPlayer());
         });
         registerContext(OnlinePlayer[].class, (c) -> {
             BukkitCommandIssuer issuer = c.getIssuer();
@@ -125,8 +125,8 @@ public class BukkitCommandContexts extends CommandContexts<BukkitCommandExecutio
                     throw new InvalidCommandArgument();
                 }
 
-                OnlinePlayer onlinePlayer = getOnlinePlayer(c.getIssuer(), arg, isOptional);
-                return onlinePlayer != null ? onlinePlayer.getPlayer() : null;
+                OnlinePlayer onlinePlayer = getOnlinePlayer(c.getIssuer(), arg, false);
+                return onlinePlayer.getPlayer();
             }
         });
         registerContext(OfflinePlayer.class, c -> {
@@ -142,12 +142,12 @@ public class BukkitCommandContexts extends CommandContexts<BukkitCommandExecutio
                 }
                 offlinePlayer = Bukkit.getOfflinePlayer(uuid);
             } else {
-                if (!isValidName(name)) {
-                    throw new InvalidCommandArgument(MinecraftMessageKeys.IS_NOT_A_VALID_NAME, "{name}", name);
-                }
                 offlinePlayer = Bukkit.getOfflinePlayer(name);
             }
             if (offlinePlayer == null || (!offlinePlayer.hasPlayedBefore() && !offlinePlayer.isOnline())) {
+                if (!c.hasFlag("uuid") && !isValidName(name)) {
+                    throw new InvalidCommandArgument(MinecraftMessageKeys.IS_NOT_A_VALID_NAME, "{name}", name);
+                }
                 throw new InvalidCommandArgument(MinecraftMessageKeys.NO_PLAYER_FOUND_OFFLINE,
                         "{search}", name);
             }
@@ -210,9 +210,9 @@ public class BukkitCommandContexts extends CommandContexts<BukkitCommandExecutio
                 throw new InvalidCommandArgument(MinecraftMessageKeys.LOCATION_PLEASE_SPECIFY_XYZ);
             }
 
-            Double x = ACFUtil.parseDouble(split[0]);
-            Double y = ACFUtil.parseDouble(split[1]);
-            Double z = ACFUtil.parseDouble(split[2]);
+            Double x = ACFUtil.parseDouble(split[0], rel ? 0.0D : null);
+            Double y = ACFUtil.parseDouble(split[1], rel ? 0.0D : null);
+            Double z = ACFUtil.parseDouble(split[2], rel ? 0.0D : null);
 
             if (sourceLoc != null && rel) {
                 x += sourceLoc.getX();
@@ -249,7 +249,7 @@ public class BukkitCommandContexts extends CommandContexts<BukkitCommandExecutio
         }
     }
 
-    @Nullable
+    @Contract("_,_,false -> !null")
     OnlinePlayer getOnlinePlayer(BukkitCommandIssuer issuer, String lookup, boolean allowMissing) throws InvalidCommandArgument {
         Player player = ACFBukkitUtil.findPlayerSmart(issuer, lookup);
         //noinspection Duplicates
